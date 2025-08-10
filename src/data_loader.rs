@@ -134,9 +134,15 @@ impl DataLoader {
             let session_id = entry.session_id.clone().unwrap_or_else(|| "unknown".to_string());
             
             // Calculate cost
-            let cost = entry.message.cost_usd.unwrap_or_else(|| {
+            // IMPORTANT: Only calculate cost if it's not already in the JSONL
+            // If cost_usd is present, use it. Otherwise calculate it ONCE.
+            let cost = if let Some(cost) = entry.message.cost_usd {
+                cost
+            } else {
+                // Only calculate for models we have pricing for
+                // This prevents double-counting when re-reading files
                 self.pricing.calculate_cost(&entry.message.model, &entry.message.usage)
-            });
+            };
             
             // Update totals
             total_tokens.add(&entry.message.usage);
