@@ -54,6 +54,30 @@ impl PricingData {
             cache_read_input_token_cost: 1.50 / 1_000_000.0,
         });
         
+        // Claude 4 Sonnet pricing (using same as 3.5 Sonnet for now)
+        models.insert("claude-sonnet-4-20250514".to_string(), ModelPricing {
+            input_cost_per_token: 3.0 / 1_000_000.0,
+            output_cost_per_token: 15.0 / 1_000_000.0,
+            cache_creation_input_token_cost: 3.75 / 1_000_000.0,
+            cache_read_input_token_cost: 0.30 / 1_000_000.0,
+        });
+        
+        // Claude 4 Opus pricing (using same as Claude 3 Opus for now)
+        models.insert("claude-opus-4-20250514".to_string(), ModelPricing {
+            input_cost_per_token: 15.0 / 1_000_000.0,
+            output_cost_per_token: 75.0 / 1_000_000.0,
+            cache_creation_input_token_cost: 18.75 / 1_000_000.0,
+            cache_read_input_token_cost: 1.50 / 1_000_000.0,
+        });
+        
+        // Claude 4.1 Opus pricing (using same as Claude 3 Opus for now)
+        models.insert("claude-opus-4-1-20250805".to_string(), ModelPricing {
+            input_cost_per_token: 15.0 / 1_000_000.0,
+            output_cost_per_token: 75.0 / 1_000_000.0,
+            cache_creation_input_token_cost: 18.75 / 1_000_000.0,
+            cache_read_input_token_cost: 1.50 / 1_000_000.0,
+        });
+        
         Self { models }
     }
     
