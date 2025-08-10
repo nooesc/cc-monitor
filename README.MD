@@ -85,7 +85,10 @@ Each Claude model has different pricing per million tokens:
 - Total: $0.105
 
 ### Understanding Sessions
-A "session" is one continuous conversation with Claude Code. Each time you start a new chat or open a different project, it creates a new session. Sessions help you track usage per project or task.
+A "session" in cc-monitor represents one unique conversation with Claude Code, identified by a UUID. Each time you start Claude Code or begin a new chat, it creates a new session. For example:
+- You might have 155 total sessions across 29 different projects
+- Multiple sessions can exist for the same project (different conversations at different times)
+- This differs from some tools that group by project directory instead of actual sessions
 
 ## Configuration
 
