@@ -1,15 +1,6 @@
 # CC-Monitor
 
-A simple, fast Rust tool to monitor Claude Code usage with an interactive dashboard.
-
-## Features
-
-- 📊 **Status Command**: Quick overview of your Claude usage
-- 📈 **Daily/Monthly Reports**: Detailed breakdowns by time period
-- 🔍 **Session Tracking**: Monitor individual Claude sessions
-- 🎨 **Interactive Dashboard**: Real-time TUI with ratatui
-- 💰 **Cost Tracking**: Automatic cost calculation based on model pricing
-- 🚀 **Fast**: Written in Rust for blazing fast performance
+A simple, fast Rust CLI to monitor Claude Code usage.
 
 ## Installation
 
@@ -19,25 +10,13 @@ cargo install --path .
 
 ## Usage
 
-### Quick Status
+### Interactive Dashboard (default)
 ```bash
-cc-monitor status
-cc-monitor status --detailed  # More details
-cc-monitor status --json      # JSON output
-```
-
-### Interactive Dashboard
-```bash
+cc-monitor
+# or explicitly:
 cc-monitor dashboard
 ```
 Navigate with Tab, ↑↓ arrows, and press 'q' to quit.
-
-### Reports
-```bash
-cc-monitor daily --days 7     # Last 7 days
-cc-monitor monthly            # Monthly breakdown
-cc-monitor sessions --limit 10 # Recent sessions
-```
 
 ### Statusline (for Claude hooks)
 Compact one-line output perfect for status bars or Claude Code hooks:
@@ -57,16 +36,10 @@ To use with Claude Code hooks, add to `~/.claude/settings.json`:
 }
 ```
 
-### JSON Output
-All commands support `--json` flag for programmatic access:
-```bash
-cc-monitor status --json | jq '.today.cost'
-```
-
 ## How It Works
 
 ### Where Does the Data Come From?
-Claude Code (the desktop app) automatically logs every interaction you have with Claude AI to local JSONL files on your computer. These files contain:
+Claude Code automatically logs every interaction to local JSONL files on your computer. These files contain:
 - **Timestamps** - When you used Claude
 - **Token counts** - How many tokens were used (input, output, cache)
 - **Model information** - Which Claude model responded
@@ -82,7 +55,7 @@ Tokens are how AI models measure text. As a rough guide:
 - 100 tokens ≈ 75 words
 - A typical conversation might use 1,000-10,000 tokens
 
-### Token Types Explained
+### Token Types
 - **Input tokens**: What you send to Claude (your questions/code)
 - **Output tokens**: What Claude sends back (responses/generated code)
 - **Cache read tokens**: When Claude reuses previous context (cheaper)
@@ -102,12 +75,6 @@ Each Claude model has different pricing per million tokens:
 - Output cost: 5,000 × ($15.00/1,000,000) = $0.075
 - Total: $0.105
 
-### Understanding Sessions
-A "session" in cc-monitor represents one unique conversation with Claude Code, identified by a UUID. Each time you start Claude Code or begin a new chat, it creates a new session. For example:
-- You might have 155 total sessions across 29 different projects
-- Multiple sessions can exist for the same project (different conversations at different times)
-- This differs from some tools that group by project directory instead of actual sessions
-
 ## Configuration
 
 Set custom Claude data directories:
@@ -120,14 +87,6 @@ export CLAUDE_CONFIG_DIR=/path1,/path2
 By default, searches both:
 - `~/.config/claude/projects/` (new location)
 - `~/.claude/projects/` (legacy location)
-
-## Supported Models
-
-Currently tracks pricing for:
-- Claude 3.5 Sonnet
-- Claude 3.5 Haiku  
-- Claude 3 Opus
-- Claude 4 models (when available)
 
 ## License
 

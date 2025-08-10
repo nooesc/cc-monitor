@@ -9,7 +9,7 @@ use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
 use cli::{Cli, Commands};
-use commands::{show_daily, show_monthly, show_sessions, show_status, show_statusline};
+use commands::show_statusline;
 use data_loader::DataLoader;
 use tui::{App, run_dashboard};
 
@@ -26,25 +26,14 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     
     match cli.command {
-        Commands::Status { detailed, json } => {
-            show_status(detailed, json)?;
-        }
-        Commands::Dashboard => {
+        Some(Commands::Dashboard) | None => {
+            // Dashboard is the default command
             let loader = DataLoader::new()?;
             let stats = loader.load_all_usage()?;
             let app = App::new(stats);
             run_dashboard(app)?;
         }
-        Commands::Daily { json, days } => {
-            show_daily(json, days)?;
-        }
-        Commands::Monthly { json } => {
-            show_monthly(json)?;
-        }
-        Commands::Sessions { json, limit } => {
-            show_sessions(json, limit)?;
-        }
-        Commands::Statusline { stdin } => {
+        Some(Commands::Statusline { stdin }) => {
             show_statusline(stdin)?;
         }
     }
