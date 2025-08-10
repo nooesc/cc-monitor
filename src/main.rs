@@ -9,7 +9,7 @@ use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
 use cli::{Cli, Commands};
-use commands::{show_daily, show_monthly, show_sessions, show_status};
+use commands::{show_daily, show_monthly, show_sessions, show_status, show_statusline};
 use data_loader::DataLoader;
 use tui::{App, run_dashboard};
 
@@ -43,6 +43,9 @@ async fn main() -> Result<()> {
         }
         Commands::Sessions { json, limit } => {
             show_sessions(json, limit)?;
+        }
+        Commands::Statusline { stdin } => {
+            show_statusline(stdin)?;
         }
     }
     

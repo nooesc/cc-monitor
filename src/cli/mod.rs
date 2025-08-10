@@ -53,4 +53,11 @@ pub enum Commands {
         #[arg(short, long, default_value = "10")]
         limit: usize,
     },
+    
+    /// Show compact statusline (for use with Claude hooks)
+    Statusline {
+        /// Read JSON input from stdin (for hook integration)
+        #[arg(long)]
+        stdin: bool,
+    },
 }

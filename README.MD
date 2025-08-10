@@ -39,6 +39,24 @@ cc-monitor monthly            # Monthly breakdown
 cc-monitor sessions --limit 10 # Recent sessions
 ```
 
+### Statusline (for Claude hooks)
+Compact one-line output perfect for status bars or Claude Code hooks:
+```bash
+cc-monitor statusline          # Basic statusline
+cc-monitor statusline --stdin  # Read model info from stdin (for hooks)
+```
+
+Output format: `🤖 Model | 💰 $X session / $Y today / $Z block | 🔥 $W/hr`
+
+To use with Claude Code hooks, add to `~/.claude/settings.json`:
+```json
+{
+  "hooks": {
+    "on_prompt_submit": "cc-monitor statusline --stdin"
+  }
+}
+```
+
 ### JSON Output
 All commands support `--json` flag for programmatic access:
 ```bash
