@@ -45,6 +45,48 @@ All commands support `--json` flag for programmatic access:
 cc-monitor status --json | jq '.today.cost'
 ```
 
+## How It Works
+
+### Where Does the Data Come From?
+Claude Code (the desktop app) automatically logs every interaction you have with Claude AI to local JSONL files on your computer. These files contain:
+- **Timestamps** - When you used Claude
+- **Token counts** - How many tokens were used (input, output, cache)
+- **Model information** - Which Claude model responded
+- **Session IDs** - To group related conversations
+
+The logs are stored in:
+- `~/.config/claude/projects/` (newer installations)
+- `~/.claude/projects/` (older installations)
+
+### What Are Tokens?
+Tokens are how AI models measure text. As a rough guide:
+- 1 token ≈ 4 characters of English text
+- 100 tokens ≈ 75 words
+- A typical conversation might use 1,000-10,000 tokens
+
+### Token Types Explained
+- **Input tokens**: What you send to Claude (your questions/code)
+- **Output tokens**: What Claude sends back (responses/generated code)
+- **Cache read tokens**: When Claude reuses previous context (cheaper)
+- **Cache creation tokens**: When Claude stores context for reuse
+
+### How Are Costs Calculated?
+Each Claude model has different pricing per million tokens:
+
+**Claude 3.5 Sonnet** (most common):
+- Input: $3.00 per million tokens
+- Output: $15.00 per million tokens
+- Cache read: $0.30 per million tokens
+- Cache creation: $3.75 per million tokens
+
+**Example**: If you use 10,000 input tokens and get 5,000 output tokens:
+- Input cost: 10,000 × ($3.00/1,000,000) = $0.03
+- Output cost: 5,000 × ($15.00/1,000,000) = $0.075
+- Total: $0.105
+
+### Understanding Sessions
+A "session" is one continuous conversation with Claude Code. Each time you start a new chat or open a different project, it creates a new session. Sessions help you track usage per project or task.
+
 ## Configuration
 
 Set custom Claude data directories:
