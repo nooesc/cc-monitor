@@ -99,6 +99,18 @@ impl DataLoader {
         for (line_num, line) in reader.lines().enumerate() {
             match line {
                 Ok(json_str) => {
+                    // Skip empty lines and incomplete JSON
+                    if json_str.trim().is_empty() {
+                        continue;
+                    }
+                    
+                    // Validate that the line is complete JSON (starts with { and ends with })
+                    let trimmed = json_str.trim();
+                    if !trimmed.starts_with('{') || !trimmed.ends_with('}') {
+                        debug!("Skipping incomplete JSON line {} in {:?}", line_num + 1, path);
+                        continue;
+                    }
+                    
                     match serde_json::from_str::<UsageEntry>(&json_str) {
                         Ok(mut entry) => {
                             // Fill in session_id if missing
@@ -125,6 +137,9 @@ impl DataLoader {
         // Sort entries by timestamp to ensure consistent processing order
         entries.sort_by_key(|e| e.timestamp);
         
+        // Track processed entries to prevent duplicate counting
+        let mut processed_entries = HashSet::new();
+        
         let mut daily_map: BTreeMap<chrono::NaiveDate, DailyUsage> = BTreeMap::new();
         let mut session_map: BTreeMap<String, SessionUsage> = BTreeMap::new();
         let mut monthly_map: BTreeMap<String, MonthlyUsage> = BTreeMap::new();
@@ -132,6 +147,17 @@ impl DataLoader {
         let mut total_cost = 0.0;
         
         for entry in entries {
+            // Create unique identifier for this entry
+            let entry_id = entry.unique_id();
+            
+            // Skip if we've already processed this entry (prevents duplicate counting)
+            if processed_entries.contains(&entry_id) {
+                debug!("Skipping duplicate entry: {}", entry_id);
+                continue;
+            }
+            
+            // Mark this entry as processed
+            processed_entries.insert(entry_id.clone());
             let date = entry.timestamp.date_naive();
             let month = format!("{:04}-{:02}", date.year(), date.month());
             let session_id = entry.session_id.clone().unwrap_or_else(|| "unknown".to_string());

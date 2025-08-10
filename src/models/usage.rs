@@ -12,6 +12,22 @@ pub struct UsageEntry {
     pub message: Message,
 }
 
+impl UsageEntry {
+    /// Create a unique identifier for this entry to prevent duplicate counting
+    /// Uses timestamp, model, and token counts to create a deterministic hash
+    pub fn unique_id(&self) -> String {
+        format!(
+            "{}:{}:{}:{}:{}:{}",
+            self.timestamp.timestamp_millis(),
+            self.message.model,
+            self.message.usage.input_tokens,
+            self.message.usage.output_tokens,
+            self.message.usage.cache_creation_input_tokens,
+            self.message.usage.cache_read_input_tokens
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub model: String,
