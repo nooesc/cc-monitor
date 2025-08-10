@@ -61,12 +61,10 @@ pub fn show_statusline(read_stdin: bool) -> Result<()> {
         stats.sessions.iter()
             .find(|s| s.session_id == *sid)
             .map(|s| s.total_cost)
-            .unwrap_or(0.0)
+            .unwrap_or(0.0)  // New session shows $0.00
     } else {
-        // Fallback: if no session ID, use the most recent session
-        stats.sessions.first()
-            .map(|s| s.total_cost)
-            .unwrap_or(0.0)
+        // No session ID provided - show 0.0 instead of guessing
+        0.0
     };
 
     // Calculate burn rate (tokens per hour over last 3 hours)
@@ -159,12 +157,10 @@ pub fn show_statusline_json(read_stdin: bool) -> Result<()> {
         stats.sessions.iter()
             .find(|s| s.session_id == hd.session_id)
             .map(|s| s.total_cost)
-            .unwrap_or(0.0)
+            .unwrap_or(0.0)  // New session shows $0.00
     } else {
-        // Fallback: if no session ID, use the most recent session
-        stats.sessions.first()
-            .map(|s| s.total_cost)
-            .unwrap_or(0.0)
+        // No hook data - show 0.0 instead of guessing
+        0.0
     };
 
     let three_hours_ago = Utc::now() - Duration::hours(3);

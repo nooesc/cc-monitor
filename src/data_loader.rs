@@ -1,7 +1,7 @@
 use anyhow::{Result, Context};
 use chrono::Datelike;
 use glob::glob;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -121,10 +121,13 @@ impl DataLoader {
         Ok(entries)
     }
     
-    fn aggregate_usage(&self, entries: Vec<UsageEntry>) -> Result<UsageStats> {
-        let mut daily_map: HashMap<chrono::NaiveDate, DailyUsage> = HashMap::new();
-        let mut session_map: HashMap<String, SessionUsage> = HashMap::new();
-        let mut monthly_map: HashMap<String, MonthlyUsage> = HashMap::new();
+    fn aggregate_usage(&self, mut entries: Vec<UsageEntry>) -> Result<UsageStats> {
+        // Sort entries by timestamp to ensure consistent processing order
+        entries.sort_by_key(|e| e.timestamp);
+        
+        let mut daily_map: BTreeMap<chrono::NaiveDate, DailyUsage> = BTreeMap::new();
+        let mut session_map: BTreeMap<String, SessionUsage> = BTreeMap::new();
+        let mut monthly_map: BTreeMap<String, MonthlyUsage> = BTreeMap::new();
         let mut total_tokens = TokenUsage::default();
         let mut total_cost = 0.0;
         
