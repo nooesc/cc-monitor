@@ -1,11 +1,11 @@
 use anyhow::{Result, Context};
-use chrono::Datelike;
+use chrono::{Datelike, DateTime, Utc};
 use glob::glob;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use tracing::{debug, warn};
+use tracing::{debug, warn, info};
 
 use crate::models::{UsageEntry, DailyUsage, SessionUsage, MonthlyUsage, TokenUsage, UsageStats, PricingData};
 
@@ -137,44 +137,57 @@ impl DataLoader {
         // Sort entries by timestamp to ensure consistent processing order
         entries.sort_by_key(|e| e.timestamp);
         
-        // Track processed entries to prevent duplicate counting
-        let mut processed_entries = HashSet::new();
-        
         let mut daily_map: BTreeMap<chrono::NaiveDate, DailyUsage> = BTreeMap::new();
         let mut session_map: BTreeMap<String, SessionUsage> = BTreeMap::new();
         let mut monthly_map: BTreeMap<String, MonthlyUsage> = BTreeMap::new();
         let mut total_tokens = TokenUsage::default();
         let mut total_cost = 0.0;
         
+        // Detect resumed sessions to avoid double-counting cache tokens
+        let session_chains = self.detect_resumed_sessions(&entries);
+        
+        // Track maximum cache seen per session chain
+        let mut chain_cache_max: BTreeMap<usize, (u64, u64)> = BTreeMap::new();
+        
         for entry in entries {
-            // Create unique identifier for this entry
-            let entry_id = entry.unique_id();
-            
-            // Skip if we've already processed this entry (prevents duplicate counting)
-            if processed_entries.contains(&entry_id) {
-                debug!("Skipping duplicate entry: {}", entry_id);
-                continue;
-            }
-            
-            // Mark this entry as processed
-            processed_entries.insert(entry_id.clone());
             let date = entry.timestamp.date_naive();
             let month = format!("{:04}-{:02}", date.year(), date.month());
             let session_id = entry.session_id.clone().unwrap_or_else(|| "unknown".to_string());
             
-            // Calculate cost
-            // IMPORTANT: Only calculate cost if it's not already in the JSONL
-            // If cost_usd is present, use it. Otherwise calculate it ONCE.
+            // Find which session chain this belongs to
+            let chain_idx = session_chains.iter()
+                .position(|chain| chain.contains(&session_id));
+            
+            // Adjust usage for resumed sessions to avoid double-counting cache
+            let mut adjusted_usage = entry.message.usage.clone();
+            
+            if let Some(idx) = chain_idx {
+                let (max_cache_read, max_cache_creation) = chain_cache_max.entry(idx)
+                    .or_insert((0, 0));
+                
+                // Only count incremental cache, not the full amount
+                let incremental_cache_read = adjusted_usage.cache_read_input_tokens
+                    .saturating_sub(*max_cache_read);
+                let incremental_cache_creation = adjusted_usage.cache_creation_input_tokens
+                    .saturating_sub(*max_cache_creation);
+                
+                adjusted_usage.cache_read_input_tokens = incremental_cache_read;
+                adjusted_usage.cache_creation_input_tokens = incremental_cache_creation;
+                
+                // Update max cache seen
+                *max_cache_read = (*max_cache_read).max(entry.message.usage.cache_read_input_tokens);
+                *max_cache_creation = (*max_cache_creation).max(entry.message.usage.cache_creation_input_tokens);
+            }
+            
+            // Calculate cost with adjusted usage
             let cost = if let Some(cost) = entry.message.cost_usd {
                 cost
             } else {
-                // Only calculate for models we have pricing for
-                // This prevents double-counting when re-reading files
-                self.pricing.calculate_cost(&entry.message.model, &entry.message.usage)
+                self.pricing.calculate_cost(&entry.message.model, &adjusted_usage)
             };
             
-            // Update totals
-            total_tokens.add(&entry.message.usage);
+            // Update totals with adjusted usage
+            total_tokens.add(&adjusted_usage);
             total_cost += cost;
             
             // Update daily stats
@@ -185,7 +198,7 @@ impl DataLoader {
                 models_used: HashSet::new(),
                 session_count: 0,
             });
-            daily.tokens.add(&entry.message.usage);
+            daily.tokens.add(&adjusted_usage);
             daily.total_cost += cost;
             daily.models_used.insert(entry.message.model.clone());
             
@@ -198,7 +211,7 @@ impl DataLoader {
                 last_activity: entry.timestamp,
                 models_used: HashSet::new(),
             });
-            session.tokens.add(&entry.message.usage);
+            session.tokens.add(&adjusted_usage);
             session.total_cost += cost;
             session.last_activity = session.last_activity.max(entry.timestamp);
             session.models_used.insert(entry.message.model.clone());
@@ -211,7 +224,7 @@ impl DataLoader {
                 models_used: HashSet::new(),
                 daily_breakdown: Vec::new(),
             });
-            monthly.tokens.add(&entry.message.usage);
+            monthly.tokens.add(&adjusted_usage);
             monthly.total_cost += cost;
             monthly.models_used.insert(entry.message.model);
         }
@@ -245,5 +258,58 @@ impl DataLoader {
             daily,
             monthly,
         })
+    }
+    
+    /// Detect resumed sessions based on timing and project
+    /// Sessions that start within 10 minutes of each other in the same project
+    /// are likely resumed sessions sharing the same cache
+    fn detect_resumed_sessions(&self, entries: &[UsageEntry]) -> Vec<Vec<String>> {
+        // Build session info
+        let mut session_times: BTreeMap<String, (DateTime<Utc>, DateTime<Utc>, String)> = BTreeMap::new();
+        
+        for entry in entries {
+            if let Some(session_id) = &entry.session_id {
+                let project = entry.cwd.clone().unwrap_or_else(|| "unknown".to_string());
+                let times = session_times.entry(session_id.clone())
+                    .or_insert((entry.timestamp, entry.timestamp, project.clone()));
+                times.0 = times.0.min(entry.timestamp);
+                times.1 = times.1.max(entry.timestamp);
+            }
+        }
+        
+        // Group sessions into chains
+        let mut chains: Vec<Vec<String>> = Vec::new();
+        let mut processed = HashSet::new();
+        
+        for (session_id, (start, end, project)) in &session_times {
+            if processed.contains(session_id) {
+                continue;
+            }
+            
+            let mut chain = vec![session_id.clone()];
+            processed.insert(session_id.clone());
+            
+            // Find sessions that might be resumptions
+            for (other_id, (other_start, _, other_project)) in &session_times {
+                if processed.contains(other_id) || other_project != project {
+                    continue;
+                }
+                
+                // Check if this session starts shortly after the current chain ends
+                let gap_minutes = other_start.signed_duration_since(*end).num_minutes();
+                if gap_minutes >= 0 && gap_minutes <= 10 {
+                    chain.push(other_id.clone());
+                    processed.insert(other_id.clone());
+                }
+            }
+            
+            if chain.len() > 1 {
+                info!("Detected resumed session chain with {} sessions", chain.len());
+            }
+            
+            chains.push(chain);
+        }
+        
+        chains
     }
 }
